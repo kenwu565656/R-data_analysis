@@ -1,0 +1,389 @@
+---
+title: "STAT3613 Project Final Report"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(reshape2)
+library(conjanal)
+library(smacof)
+#install.packages("devtools")
+#devtools::install_github("cwkwanstat/cmdpref")
+library(cmdpref)
+library(ca)
+library(data.table)
+```
+
+# Analysis of factors that affect the views and number of likes of YouTube channel ‐ The best league
+
+\newpage
+
+## Index
+
+### Introduction section P.3
+
+### Methods section P.4 - 6
+
+### Results section P.7 - 12
+
+### Limitations section P. 13
+
+### Conclusion section P. 14
+
+\pagebreak
+
+\newpage
+
+## Introduction
+
+### Background
+
+The best league is a YouTube channel which uploads the highlights of League of legends 
+(LoL) e‐sport matches. The views, number of like of different match highlight 
+have a huge difference. The difference in views represent that the viewers have some 
+preference for the match highlight. This analysis aims to find out the relationship between 
+the factors of the match highlight and the views, number of like of YouTube 
+channel ‐ The best league. After finding out the result, the viewer’s preference can be 
+studied, it is useful for starting a YouTube channel about e‐sport highlight and improving the 
+existing YouTube channel. Based on our assumptions, conjoint analysis will be 
+applied to the data.
+
+### Definition of key word
+
+1. tournament - there are six big tournament in the League of legends 
+(LoL) e‐sport match, they are LEC, LCS, LCK, LPL, MSI and World\
+
+2. knock-out-stage - a competition in which only the winners of each stage play in the next stage, until one competitor or team is the final winner\
+
+3. Top player - In this study, it means a player who had gotten any champion title\
+
+4. Past Top team - In this study, it means a team who had gotten any champion title\
+
+5. Strong team - In this study, it means a team with higher ranking than its opponent before the match\
+
+### Objective       
+
+1. Find out the factor(s) affect the views and like of video in Youtube channel - The best league\
+
+2. Find out the relationship between factors and views and likes of video in Youtube channel - The best league\
+
+3. Find the weighting of each factors that affect the views and likes of video in Youtube channel - The best league\
+
+\pagebreak
+
+\newpage
+
+## Method
+
+The analysis procedure\
+
+1. Sampling method design\
+
+2. Data collection \
+
+3. Data cleaning \
+
+4. Data analysis \
+
+### Sampling method design
+
+#### Multi‐stage sampling
+
+As the factors is very different from each tournament, the six tournaments are divided into six stratums.\
+
+Based on the 10 randomly selected pilot sample from each match region, the sample size from each stratum are allocated as the following:\
+
+![allocation base on variance and population size](allocation.PNG)
+
+Worlds: 5 match days will be sampled\
+
+LPL: 9 match days will be sampled\
+
+LCK: 15 match days will be sampled\
+
+LEC: 6 match days will be sampled\
+
+LCS: 5 match days will be sampled\
+
+MSI: 4 match days will be sampled\
+
+All match highlights video of the matches on the selected match days will be the sample. \
+
+### Data Collection
+
+The data is collected from the our studying YouTube channel - The best League, as the following:\
+
+![total 166 oberverion, 13 variables](data.PNG)
+
+Summary of Data:
+```{r echo=FALSE}
+library("readxl")
+data = read_excel("views.xlsx")
+data[,12] = data[,12] / data[,11]
+summary(data[,1:6])
+summary(data[,11:13])
+```
+
+### Defination to each variables
+
+1. video length - the video length in seconds
+
+2. length of video title - the word counts(including symbols) in the title
+
+3. number of "!" and "?" in title - the counts of ! and ? symbols in the title
+
+4. number of Asia team - number of Asia team in that match(max 2, min 0)
+
+5. number of Top players - number of Top players(the players had got any champion title before) in that match(max 10, min 0)
+
+6. number of past strong team - number of strong team(the team had got any champion title before) in that match(max 2, min 0)
+
+7. knock-out stage - whether the match is in knock-out stage(Yes or No)
+
+8. strong win - whether the stronger team(the team with higher rank) win the match(Yes or No)
+
+9. upload date - the match video is uploaded on weekday or weekend
+
+10. match region - the match is from which tournament
+
+11. views - the views of the match video
+
+12. likes - the number of likes of the match video
+
+13. how long uploaded - (how long had the match video been uploaded)
+
+### Data analysis
+
+Idea: in order to study how the factors affect and the weighting of the affect, conjoint analysis will be apply to the data.
+
+Assumption 1: Since it is impossible to collect the profile of all the level of factors, some factors will be grouped.
+             
+video length, length of video title and number of "!" and "?" will be grouped as video factor since they are designed by the video maker.
+            
+number of Asia team, number of top player and number of past strong team will be grouped as match factor since they are fixed by the match result.
+            
+To determine the level of those group factor, cluster analysis will be applied. The data will be clustered by the grouped data. The charactertics of the cluster represent the level.
+            
+Assumption 2: The views and likes represent the rating of the viewers
+
+Assumption 3: If there is equal profile, the profile will be combined by there mean rating
+            
+            
+\pagebreak
+
+\newpage
+
+## Result
+
+### First Step: 
+use cluster analysis to divide group the videos on cluster base on the factors 1 - 3(the video factors), which are video length, length of video title and number of "!" and "?". Base on the number of cluster suggested, we can find out how many level of video factor is suitable.
+
+```{r echo=FALSE}
+dist<-dist(scale(data[,1:3]),method="euclidean")^2
+
+fit <- hclust(dist, method="ward.D")
+history<-cbind(fit$merge,fit$height)
+plot(fit,hang=-1,sub="",xlab="",main="")
+ggplot(mapping=aes(x=1:length(fit$height),y=fit$height))+
+  geom_line()+
+  geom_point()+
+  labs(x="stage",y="height")
+cluster<-cutree(fit,k=2)
+data$video_level = cluster
+aggregate(data[,1:3], by=list(data$video_level), FUN=mean)
+```
+Based on the result, two cluster solution is suggested. The video factor is going to be divided in two level.\
+Level 1: Long video length, long length of video title and more number of ! and ? Inf the title\
+Level 2: Short video length, Short length of video title and less number of ! and ? Inf the title\
+
+
+\pagebreak
+
+\newpage
+### Second Step: 
+use cluster analysis to divide group the videos on cluster base on the factors 4 - 6(the match factors), which are the number of Asia team, number of top player and number of past strong team. Base on the number of cluster suggested, we can find out how many level of match factor is suitable
+```{r echo=FALSE}
+dist<-dist(scale(data[,4:6]),method="euclidean")^2
+
+fit <- hclust(dist, method="ward.D")
+history<-cbind(fit$merge,fit$height)
+plot(fit,hang=-1,sub="",xlab="",main="")
+ggplot(mapping=aes(x=1:length(fit$height),y=fit$height))+
+  geom_line()+
+  geom_point()+
+  labs(x="stage",y="height")
+cluster<-cutree(fit,k=3)
+data$matchLevel = cluster
+aggregate(data[,4:6], by=list(cluster), FUN=mean)
+```
+Based on the result, three cluster solution is suggested. The video factor is going to be divided in three level.\
+Level 1: most of Asia team, most of top player and all past strong team\
+Level 2: most of West team, about half of top player and most of past strong team\
+Level 3: all the Asia team, less of top player and less past strong team\
+
+\pagebreak
+
+\newpage
+### Conjoint analysis of how the factors affect and the weight of affect of the factors on the video's view
+
+We cheat the views as a customers giving rating.\
+
+The views are the customer's rating, more views means more prefer.\
+
+Combining the video factor and match factor level from the previous section, we have the following results\
+
+```{r echo=FALSE}
+data1 = data.frame(data[,7:9], data[,14:15], data[,11])
+data1[nrow(data1) + 1,] = c("No","No", "weekend", as.numeric(1), as.numeric(3), as.numeric(46014) )
+data1[nrow(data1) + 1,] = c("Yes","No", "weekend", as.numeric(1), as.numeric(2), as.numeric(46014) )
+data1[nrow(data1) + 1,] = c("No","Yes", "weekend", as.numeric(2), as.numeric(1), as.numeric(46014) )
+data1[nrow(data1) + 1,] = c("No","No", "weekday", as.numeric(2), as.numeric(1), as.numeric(46014) )
+data1[nrow(data1) + 1,] = c("No","Yes", "weekend", as.numeric(1), as.numeric(1), as.numeric(46014) )
+data1[,4:6] = as.numeric(unlist(data1[,4:6]))
+data1 = aggregate(views~., data1, FUN=mean)
+data1[sapply(data1, is.character)] <- lapply(data1[sapply(data1, is.character)], 
+                                                           as.factor)
+data1$ko<-data1$knock.out.stage
+data1$sw<-data1$strong.win
+data1$ud<-data1$upload.date
+data1$vl = factor(data1$video_level)
+data1$ml = factor(data1$matchLevel)
+
+rpes = rank(-1* data1[,6])
+contrasts(data1$ko)<-contr.sum(2)
+contrasts(data1$sw)<-contr.sum(2)
+contrasts(data1$ud)<-contr.sum(2)
+contrasts(data1$vl)<-contr.sum(2)
+contrasts(data1$ml)<-contr.sum(3)
+resp<-as.matrix(rpes)
+fit.conj<-conjanal(resp=resp,profile=data1[,7:11])
+#summary(fit.conj$lm)
+fit.conj$part
+#relative importance
+fit.conj$imp
+
+```
+Based on the result we find that \
+1. Knock-out stage have little impact on the views. Not knock-out stage matches are more preferable\
+2. Strong team win or not have little impact on the views. weak team matches are more preferable\
+3. Upload Date impact the views on more than 10%. Weekend uploaded video are more preferable\
+4. video factor impact the views on 30%. Level 2(Short video length, Short length of video title and less number of ! and ? Inf the title) are more preferable\
+5. match factor impact the views the most on more than 50%. Level 2: most of West team, about half of top player and most of past strong team are the most preferable\
+
+\pagebreak
+
+\newpage
+### Conjoint analysis of how the factors affect and the weight of affect of the factors on the video's likes
+We cheat the likes as a customers giving rating.\
+The views are the customer's rating, more likes per views means more prefer.\
+Combining the video factor and match factor level from the previous section, we have the following results.\
+```{r echo=FALSE}
+data2 = data.frame(data[,7:9], data[,14:15], data[,12])
+data2[nrow(data2) + 1,] = c("No","No", "weekend", as.numeric(1), as.numeric(3), as.numeric(0.005077) )
+data2[nrow(data2) + 1,] = c("Yes","No", "weekend", as.numeric(1), as.numeric(2), as.numeric(0.005077) )
+data2[nrow(data2) + 1,] = c("No","Yes", "weekend", as.numeric(2), as.numeric(1), as.numeric(0.005077) )
+data2[nrow(data2) + 1,] = c("No","No", "weekday", as.numeric(2), as.numeric(1), as.numeric(0.005077) )
+data2[nrow(data2) + 1,] = c("No","Yes", "weekend", as.numeric(1), as.numeric(1), as.numeric(0.005077) )
+data2[,4:6] = as.numeric(unlist(data2[,4:6]))
+data2 = aggregate(likes~., data2, FUN=mean)
+data2[sapply(data2, is.character)] <- lapply(data2[sapply(data2, is.character)], 
+                                                           as.factor)
+data2$ko<-data2$knock.out.stage
+data2$sw<-data2$strong.win
+data2$ud<-data2$upload.date
+data2$vl = factor(data2$video_level)
+data2$ml = factor(data2$matchLevel)
+
+rpes = rank(-1* data2[,6])
+contrasts(data2$ko)<-contr.sum(2)
+contrasts(data2$sw)<-contr.sum(2)
+contrasts(data2$ud)<-contr.sum(2)
+contrasts(data2$vl)<-contr.sum(2)
+contrasts(data2$ml)<-contr.sum(3)
+resp<-as.matrix(rpes)
+fit.conj<-conjanal(resp=resp,profile=data2[,7:11])
+#summary(fit.conj$lm)
+fit.conj$part
+#relative importance
+fit.conj$imp
+```
+
+Based on the result we find that \
+1. Knock-out stage have 20% impact on the likes. knock-out stage matches gain more likes\
+2. Strong team win or not have little impact on the likes. strong team matches gain more likes\
+3. Upload Date have little impact on the likes. Weekend uploaded video gain more likes\
+4. video factor impact the likes the most on around 50%. Level 2(Short video length, Short length of video title and less number of ! and ? Inf the title) gain more likes\
+5. match factor impact the likes the most on more than 25%. Level 3(all the Asia team, less of top player and less past strong team) gain more likes\
+
+\pagebreak
+
+\newpage
+
+## Limitations
+
+The fitness of conjoint analysis on the factors impact on likes is not quite well. The R-squared value is only 0.2779.
+It implies that the model assumption may not fit the study on likes or the data collection is not enough.
+
+The results are based on the following assumption(s):
+
+1. The views and likes of the video will not have signified growth after it is uploaded 3 weeks
+
+2. The number of likes and views grow in same growth rate
+
+3. As the channel - the best league is a Chinese channel, the number Asia team is a factor affecting views and likes
+
+4. The number of Top player data are collected by the rules: a player who had gotten any champion title is a top player
+   However, a player may not be considered as a top player by others view by the following possible reasons:
+   a) The player had the champion title a lot time ago
+   b) The player is the substitute player
+   
+5. The number of Past Top team data are collected by the rules: a team who had gotten any champion title is a past top team
+   However, a team may not be considered as a top team by others view by the following possible reasons:
+   a) The team had the champion title a lot time ago
+   b) The team have different players after it wins a tournament
+   
+6. The views and likes represent the rating of the viewers
+
+7. The combined factors can represented the factors well
+
+\pagebreak
+
+\newpage
+
+## Conclusion
+
+This study aims to study how the factors and what weights the factors affect the video's views and likes of a e-sport highlight YouTube channels by conjoint analysis. Based on initial guess and assumptions, some factors are considered as potential target. The sample observations data are collected from the targeted study YouTube channel, the best league based on Multi‐stage sampling. After assumptions and cluster analysis, some of the factors are divided into suitable factor level for the conjoint analysis. The results of the conjoint analysis are the following:
+
+### For the improtant factors affect the likes:
+
+Video length, length of video title and number of ! and ? marks in the title are the main factors(50%) affect the likes\ 
+The viewers give more likes to short video length, short length of video title and less number of ! and ? in the title\
+
+Following by the number of Asia team, number of top player and number of past strong team(25%)\
+The viewers give more likes to all the Asia team, less of top player and less past strong team\
+
+Following by whether the match is knock-on stage(19%)\
+The viewers give more likes to the knock-on stage match video\
+
+### For the improtant factors affect the views:
+
+number of Asia team, number of top player and number of past strong team are the main factors(53%) affect the views \
+The views are more for most of West team, about half of top player and most of past strong team matches\
+
+Video length, length of video title and number of ! and ? marks in the title are the main factors(30%)\
+The views are more for Short video length, Short length of video title and less number of ! and ? in the title video\
+
+Following by whether the match is upload date(12%)\
+The views are more for the video uploaded on weekend\
+
+![summary table of the study result](result.PNG)
+
+### Sugguestion
+
+In order to have a high views and likes video, upload the video on weekend, having Short video length, Short length of video title and less number of ! and ? in the title video is preferred.
+
+# End of the Project
