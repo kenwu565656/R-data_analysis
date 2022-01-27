@@ -1,0 +1,403 @@
+---
+title: "STAT2604 Final Project"
+output:
+  pdf_document : default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# install.packages("qwraps2")
+library(qwraps2)
+library(psych)
+library(ggplot2)
+library(reshape2)
+library(GPArotation)
+library("rpart")
+library("caret")
+options(qwraps2_markup = "markdown")
+```
+
+# Abstract
+
+This study aims to find out (1)the proportion of good customers that can be granted loans while ensuring that
+5, 1, 0.5% of the bad customers are wrongly identified  and (2)the top 3 most important explanatory variables that affect whether a customer is good or bad by studying the data set about past bank customers. Firstly, a summary table of the data set will be given. Then, an initial suggestion will provided. After that, a study of correlation of variables will be conducted in order to reduce the dimension of variable. The data quality issue will be solved before the last step. At last, a tuned logistic regression model will be provided to explain the importance of each variable and make prediction of good or bad customers.
+
+
+```{r cars, echo=FALSE}
+x = read.table("Customer Data", sep = ";", header = T)
+x[] <- lapply(x, gsub, pattern='%', replacement='')
+x[,8] = as.numeric(x[,8])
+x[,1] = as.numeric(x[,1])
+x[,2] = as.numeric(x[,2])
+x[,3] = as.numeric(x[,3])
+x[,4] = as.numeric(x[,4])
+x[,5] = as.numeric(x[,5])
+x[,6] = as.numeric(x[,6])
+x[,7] = as.numeric(x[,7])
+x[,9] = as.numeric(x[,9])
+x[,10] = as.numeric(x[,10])
+x[,11] = as.numeric(x[,11])
+x[,12] = as.numeric(x[,12])
+x[,14] = as.numeric(x[,14])
+x[,15] = as.numeric(x[,15])
+
+x$IP = as.numeric(x[,8])
+x[,1] = as.numeric(x[,1])
+x$Income = as.numeric(x[,2])
+x$CH = as.numeric(x[,3])
+x$CC = as.numeric(x[,4])
+x$Amt = as.numeric(x[,5])
+x$NoD = as.numeric(x[,6])
+x$Emp = as.numeric(x[,7])
+x$TaCe = as.numeric(x[,9])
+x$TaA = as.numeric(x[,10])
+x[,11] = as.numeric(x[,11])
+x$EC = as.numeric(x[,14])
+
+
+x$DMP = as.character(x[,12])
+x$Area = as.character(x[,15])
+x$character_Employment = as.character(x$Employment)
+x$character_Delayed_Missed_Payments = as.character(x$Delayed_Missed_Payments)
+```
+
+# Summary Statistics
+
+The summary statistics is given by the following table. In this stage, the missing value is not being counted in the summary.
+
+```{r pressure, echo=FALSE,results = "asis"}
+our_summary1 <-
+  list("Annual Gross Income in $" =
+       list("min"       = ~ min(Annual_Income),
+            "max"       = ~ max(Annual_Income),
+            "mean (sd)" = ~ qwraps2::mean_sd(Annual_Income)),
+       "Loan applications in past five years" =
+       list("min"       = ~ min(Credit_History),
+            "median"    = ~ median(Credit_History),
+            "max"       = ~ max(Credit_History),
+            "mean (sd)" = ~ qwraps2::mean_sd(Credit_History)),
+       "Credit cards currently held" =
+       list("min"       = ~ min(Credit_Cards),
+            "max"       = ~ max(Credit_Cards),
+            "mean (sd)" = ~ qwraps2::mean_sd(Credit_Cards)),
+       "Loan amount" =
+       list("min"       = ~ min(Amount),
+            "max"       = ~ max(Amount),
+            "mean (sd)" = ~ qwraps2::mean_sd(Amount)),
+       "Installment Percentage" =
+       list("min"       = ~ min(Installment_Percentage,na.rm = TRUE),
+            "max"       = ~ max(Installment_Percentage,na.rm = TRUE),
+            "mean" = ~ mean(Installment_Percentage,na.rm = TRUE)),
+       "Time at Current Employment(Years)" =
+       list("min"       = ~ min(Time_at_Current_Employment),
+            "median"    = ~ median(Time_at_Current_Employment),
+            "max"       = ~ max(Time_at_Current_Employment),
+            "mean (sd)" = ~ qwraps2::mean_sd(Time_at_Current_Employment)),
+       "Time at Address(Years)" =
+       list("min"       = ~ min(Time_at_Address),
+            "max"       = ~ max(Time_at_Address),
+            "mean (sd)" = ~ qwraps2::mean_sd(Time_at_Address)),
+       "Age(Years)" =
+       list("min"       = ~ min(Age),
+            "max"       = ~ max(Age),
+            "mean (sd)" = ~ qwraps2::mean_sd(Age)),
+       "Number of Dependants" =
+       list("min"       = ~ min(Number_of_Dependants,na.rm = TRUE),
+            "median"    = ~ median(Number_of_Dependants,na.rm = TRUE),
+            "max"       = ~ max(Number_of_Dependants,na.rm = TRUE),
+            "mean" = ~ mean(Number_of_Dependants, na.rm = TRUE)),
+       "Additional lines of credits" =
+       list("min"       = ~ min(Existing_Credits),
+            "max"       = ~ max(Existing_Credits),
+            "mean (sd)" = ~ qwraps2::mean_sd(Existing_Credits)),
+       "Area_Indicator" =
+       list("0" = ~ qwraps2::n_perc(Area=="0"),
+            "1" = ~ qwraps2::n_perc(Area=="1"),
+            "2" = ~ qwraps2::n_perc(Area=="2"),
+            "3" = ~ qwraps2::n_perc(Area=="3"),
+            "4" = ~ qwraps2::n_perc(Area=="4")),
+       "Employment(Counts(%))" =
+       list("Other" = ~ qwraps2::n_perc(character_Employment=="0"),
+            "Self Employment"  = ~ qwraps2::n_perc(character_Employment == "1"),
+            "Part time"  = ~ qwraps2::n_perc(character_Employment == 	
+"3")," Full time private sector"  = ~ qwraps2::n_perc(character_Employment == 	
+"4")," Full time public sector"  = ~ qwraps2::n_perc(character_Employment == 	
+"5")),
+"Delayed or Missed Payments(Counts(%))" =
+       list("No missed/delayed payments over last 3 years" = ~ qwraps2::n_perc(character_Delayed_Missed_Payments=="0"),
+            " Delayed payments only over last 3 years
+"  = ~ qwraps2::n_perc(character_Delayed_Missed_Payments == 1),
+            "Missed payments over last 3 years"  = ~ qwraps2::n_perc(character_Delayed_Missed_Payments == 	
+2)),
+       "Residential_Status(Counts(%))" =
+       list("Own" = ~ qwraps2::n_perc(Residential_Status=="Own"),
+            "Live with Family"  = ~ qwraps2::n_perc(Residential_Status == "Live with Family"),
+            "Rent"  = ~ qwraps2::n_perc(Residential_Status == 	
+"Rent"))
+       )
+by_cyl <- summary_table(dplyr::group_by(x, x[,16]), our_summary1)
+print(by_cyl,
+      rtitle = "Summary Statistics",
+      cnames = c("Not indicate(1%)", "Bad Customer(84%)", "Good Customer(15%)"))
+```
+The proportion of bad customer is much greater than good customer in our sample.
+From the table, we can find that the loan amount and area indicator of bad customer is greater than the good customer.
+
+# Initial suggestion
+
+In order to understand the characteristics of good and bad customer, we are going to plot the mean of standardized data of the continuous variable of each group of customers. The variables that have a large different between groups maybe the important variables that can distinguish the customers.
+
+```{r, echo = FALSE}
+tb<-aggregate(x=scale(x[,c("Income", "CH", "CC", "Amt", "NoD", "IP", "TaCe", "TaA", "Age", "EC")]), by=list(group = x$Good_Customer),FUN=mean,na.rm=TRUE)
+tbm<-melt(tb,id.vars='group')
+tbm$group<-factor(tbm$group)
+ggplot(tbm, 
+       aes(x = variable, y = value, group = group, colour = group)) + 
+  geom_line(aes(linetype=group))+
+  geom_point(aes(shape=group)) +
+  geom_hline(yintercept=0) +
+  labs(x=NULL,y="mean") + 
+  ggtitle("Standardized mean of continuous variables")
+```
+Since there is some missing value of whether the customer is a good customer, there is a third group of not indicate. We will ignore those value at this stage.
+
+From the graph, we can see that there is a huge difference in Annual Income(Income), Loan Amount(Amt), Installment Percentage(IP) between good customer and bad customer. 
+
+We find that the standardized mean of Annual Income(Income) and Loan Amount(Amt) are the same, this may indicate that the two variable can be explained together. We will try to find out there relationship in the next part. 
+
+For the other non-continuous variables, we will have chi-square test between them and the good-customer variables to find whether there are relationship. 
+            
+```{r, warning=FALSE}
+chisq.test(x$Good_Customer, x$Area, correct=FALSE)
+chisq.test(x$Good_Customer, x$character_Employment, correct=FALSE)
+chisq.test(x$Good_Customer, x$character_Delayed_Missed_Payments, correct=FALSE)
+chisq.test(x$Good_Customer, x$Residential_Status, correct=FALSE)
+```
+
+For the non continuous variable, it can be found that Good customer and area indicator may have a strong relationship because the chi-square value is very high and the p-value is very low.
+
+As an initial suggestion, Annual Income(Income), Installment Percentage(IP) and Area Indicator may be the top three most important variable.
+
+# Correlation of variable
+
+We are going to find out whether there is correlation between different continuous variables in order to avoid over-estimate the importance of the variables. If there is any variables have a strong Correlation, we will group them together as factor by factor analysis. The result is the following:
+```{r, echo = FALSE}
+fit2 = fa(r = scale(x[,c("Income", "CH", "CC", "Amt", "NoD", "IP", "TaCe", "TaA", "Age", "EC")]), nfactors = 10, rotate = "none", fm = "ml")
+fit2
+ld<-data.frame(fit2$loadings[,1:2])
+ggplot(data=ld,aes(x=ML1,y=ML2))+
+  geom_point()+
+  geom_text(aes(label=rownames(ld),vjust=1))+
+  geom_vline(aes(xintercept=0))+
+  geom_hline(aes(yintercept=0))+
+  coord_cartesian(xlim = c(-1,1),ylim=c(-0.5,0.5)) +
+  ggtitle("Factor loading of continuous variable of Factor 1 and 2")
+```
+
+From the diagram, we find that the factor loading of Annual Income(Income) and Loan amount(Amt) in factor 1 is the same. The two variables have a strong correlation. Therefore, we are going to use the factor score of factor 1 to replace the Annual Income(Income) and Loan amount(Amt) variable in the modeling part. For the other variables, we decide to keep them as their correlation are not as strong as Annual Income(Income) and Loan amount(Amt).                         
+
+# data quality
+
+From the data set, we find that there are a lot of outliers and missing data. We are going to handle them in different ways. 
+
+## outliers
+
+For the outliers, we are going to remove the customers data that contain at least one outliers data of the continuous variables. After removing, there are still 1665 observation.
+```{r, echo = FALSE}
+#ggplot(x) +
+#  aes(x = "", y = Income) +
+#  geom_boxplot(fill = "#0c4c8a") +
+#  theme_minimal()
+
+#boxplot.stats(x$Annual_Income)$out
+
+#boxplot.stats(x$Credit_History)$out
+
+#boxplot.stats(x$Credit_Cards)$out
+
+#boxplot.stats(x$Amount)$out
+
+#boxplot.stats(x$Number_of_Dependants)$out
+
+#boxplot.stats(x$Installment_Percentage)$out
+
+#boxplot.stats(x$Time_at_Current_Employment)$out
+
+#boxplot.stats(x$Time_at_Address)$out
+
+#boxplot.stats(x$Existing_Credits)$out
+
+
+x = x[!x$Annual_Income %in% boxplot.stats(x$Annual_Income)$out,]
+
+x = x[!x$Credit_History %in% boxplot.stats(x$Credit_History)$out,]
+
+x = x[!x$Credit_Cards %in% boxplot.stats(x$Credit_Cards)$out,]
+
+x = x[!x$Amount %in% boxplot.stats(x$Amount)$out,]
+
+x = x[!x$Number_of_Dependants %in% boxplot.stats(x$Number_of_Dependants)$out,]
+
+x = x[!x$Installment_Percentage %in% boxplot.stats(x$Installment_Percentage)$out,]
+
+x = x[!x$Time_at_Current_Employment %in% boxplot.stats(x$Time_at_Current_Employment)$out,]
+
+x = x[!x$Time_at_Address %in% boxplot.stats(x$Time_at_Address)$out,]
+
+x = x[!x$Existing_Credits %in% boxplot.stats(x$Existing_Credits)$out,]
+
+
+#ggplot(x) +
+#  aes(x = "", y = Income) +
+#  geom_boxplot(fill = "#0c4c8a") +
+#  theme_minimal()
+```
+
+## missing data
+
+we find that there are missing data in Number of Dependents, Installment Percentage and Good Customer. We are going to replace the missing value by the value of similar data. In order to find similar data, we decided to cluster the data set by wards method. Then the missing data will be replace by the cluster mean or median or proportion based on their nature.
+
+```{r, echo = FALSE, results='hide', warning=FALSE, message=FALSE}
+exp<-scale(x[,c("Income", "CH", "CC", "Amt", "TaCe", "TaA", "Age", "EC")])
+dist<-dist(exp,method="euclidean")^2
+fit <- hclust(dist, method="ward.D")
+history<-cbind(fit$merge,fit$height)
+
+# plot(fit,hang=-1,sub="",xlab="",main="")
+# axis(side = 2, at = seq(0, 100, 20))
+ggplot(mapping=aes(x=1:length(fit$height),y=fit$height))+
+  geom_line()+
+  geom_point()+
+  labs(x="stage",y="height") +
+  ggtitle("Distance against stage of cluster merging")
+cluster<-cutree(fit,k=3)
+x = data.frame(x, cluster)
+tb<-aggregate(x=x[,c("IP")], by=list(cluster = x$cluster),FUN=mean,na.rm=TRUE)
+tb1<-aggregate(x=x[,c("NoD")], by=list(cluster = x$cluster),FUN=median,na.rm=TRUE)
+
+tb$NoD = tb1$NoD
+tbm<-melt(tb,id.vars='cluster')
+tbm$cluster<-factor(tbm$cluster)
+#ggplot(tbm, 
+#       aes(x = variable, y = value, group = cluster, colour = cluster)) + 
+#  geom_line(aes(linetype=cluster))+
+#  geom_point(aes(shape=cluster)) +
+#  geom_hline(yintercept=0) +
+#  labs(x=NULL,y="mean")
+
+#f<-table(x$cluster,x$Good_Customer)
+#p<-prop.table(f,1)*100
+#cbind(f,p)
+
+x$Good_Customer[x$Good_Customer == ""] = "No"
+x$IP[is.na(x$IP)] = tb[x$cluster, 1]
+x$NoD[is.na(x$NoD)] = 1
+```
+From the height - stage plot, we find that there is a huge increase of distance between 3 cluster solution to a 2 cluster solution, so a 3 cluster solution is suggested. There are 3 set of similar data.
+For cluster 1, the mean of Installment Percentage is 17.64414, median of Number of Dependents is 1 and 79% is a bad customers.
+For cluster 2, the mean of Installment Percentage is 15.82150, median of Number of Dependents is 1 and 93% is a bad customers.
+For cluster 3, the mean of Installment Percentage is 17.59769, median of Number of Dependents is 1 and 85% is a bad customers.
+Therefore the missing data will replace by the above value if any.
+
+```{r,echo=FALSE, fig.show='hide', results='hide'}
+cor(x=scale(x[,c("Income", "CH", "CC", "Amt", "NoD", "IP", "TaCe", "TaA", "Age", "EC")]))
+fit2 = fa(r = scale(x[,c("Income", "CH", "CC", "Amt", "NoD", "IP", "TaCe", "TaA", "Age", "EC")]), nfactors = 10, rotate = "none", fm = "ml")
+fit2
+ld<-data.frame(fit2$loadings[,1:2])
+ggplot(data=ld,aes(x=ML1,y=ML2))+
+  geom_point()+
+  geom_text(aes(label=rownames(ld),vjust=1))+
+  geom_vline(aes(xintercept=0))+
+  geom_hline(aes(yintercept=0))+
+  coord_cartesian(xlim = c(-1,1),ylim=c(-0.5,0.5)) 
+x = data.frame(x, fit2$scores)
+```
+
+# Modeling
+
+In order to explain the relative importance of the continuous variables and levels of factor, we decided to apply logistics regression model on the data and then calculate the relative importance of the variables by the part-worth utilities.
+
+We first split the the data into 80% of training set and 20% of testing set.
+
+```{r}
+x = x[,c("CH", "CC", "ML1", "NoD", "IP", "TaCe", "TaA", "Age", "EC", "Area", "character_Employment", "character_Delayed_Missed_Payments", "Good_Customer", "Residential_Status")]
+x$Good_Customer = factor(x$Good_Customer)
+x$character_Employment = factor(x$character_Employment)
+x$character_Delayed_Missed_Payments = factor(x$character_Delayed_Missed_Payments)
+x$Area = factor(x$Area)
+x$Residential_Status = factor(x$Residential_Status)
+set.seed(2604)
+trainIndex <- createDataPartition(x$Good_Customer, p = .8, list = FALSE)
+train <- x[ trainIndex,]
+test  <- x[-trainIndex,]
+head(train)
+```
+
+# Result
+
+The following are the results of the tuned model:
+```{r, echo=FALSE, warning=FALSE}
+myControl = trainControl(
+    method = "cv",
+    summaryFunction = twoClassSummary,
+    classProbs = TRUE,
+    verboseIter = FALSE
+)
+myMetric = "ROC"
+myTuneLength = 10
+model.logit = train(
+    Good_Customer ~ .,
+    train,
+    method = "glm",
+    trControl = myControl,
+    metric = "ROC",
+    tuneLength = 10
+)
+
+
+pred_test.logit <- data.frame(
+  obs = test$Good_Customer,
+  pred = predict(model.logit, test),
+  predict(model.logit, test, type = "prob")
+) 
+
+pred_test.logit1 = pred_test.logit[pred_test.logit$obs == "No", ] 
+
+
+# twoClassSummary(pred_test.logit, levels(test$Good_Customer))["ROC"]
+# varImp(model.logit, scale = FALSE)
+summary(model.logit)
+df <- data.frame(
+  variable = c("CH", "CC", "ML1", "NoD","IP","TaCe", "TaA", "Age", "EC", "Area", "Employment", "DMP", "Residential"),
+  relative_importantce_Percent = c(0.58, 0.37, 2.69, 2.04, 2.85,3.49,0.29,1.30,0.6,3.08,0.59,0.96,0.37)
+  )
+df$relative_importantce_Percent = (df$relative_importantce_Percent/sum(df$relative_importantce_Percent)) * 100
+bp<- ggplot(df, aes(x="", y=relative_importantce_Percent, fill=variable))+
+geom_bar(width = 1, stat = "identity")
+pie <- bp + coord_polar("y", start=0)
+pie + ggtitle("The relative importance of variables (in %)")
+df
+```
+
+# Objective One
+
+To let the wrongly prediction of bad customer be a certain level, we decide to study the certain quantile of the predict value of the testing data of the bad customer, if the threshold is set below the quantile, certain % of prediction of bad customer will be make. Therefore, we can know the threshold value in different false negative level. The proportion of good customer is the proportion of the predict value that smaller than the threshold value.
+
+```{r}
+pred_test.logit1 = pred_test.logit[pred_test.logit$obs == "No", ] 
+
+sum(pred_test.logit$No < quantile(pred_test.logit1$No, 0.05)) /332
+
+sum(pred_test.logit$No < quantile(pred_test.logit1$No, 0.01)) /332
+
+sum(pred_test.logit$No < quantile(pred_test.logit1$No, 0.005)) /332
+```
+
+At 5 % level, the proportion of good customer is 10.5%
+At 1 % level, the proportion of good customer is 3%
+At 0.5 % level, the proportion of good customer is 1.8%
+
+# Conclusion
+
+Based on the part-worth utility of the levels of factor and different continuous variable, pie chart and tables of relative importance is produced. From the result, the top three most importance variables are Time at Current Employment, Area indicator and Installment Percentage. Their contribution are 18.2%, 16% and 14.8% Representative.The result is not fully consistent to the previous suggestions. We believe it is because of the outliers removing and missing data handling.
